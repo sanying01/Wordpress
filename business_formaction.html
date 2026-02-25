@@ -1,0 +1,144 @@
+<script>
+    
+    function isValidPhoneNumber(phone) {
+        var regex = /^\(\d{3}\) \d{3}-\d{4}$/;
+        return regex.test(phone);
+    }
+
+    function autoResize(el) {
+        el.style.height = 'auto'; // reset
+        el.style.height = Math.min(el.scrollHeight, 150) + 'px';
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var business_inform = document.querySelector('form[name="business_inform"]');
+        if (!business_inform) return;
+        // zip code
+        var zipInput = business_inform.querySelector('#form-field-business_zip');
+        if (!zipInput) return;
+        zipInput.maxLength = 5;
+        zipInput.addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, ''); // remove non-digits
+        });
+        // ein
+        var einInput = business_inform.querySelector('#form-field-business_ein');
+        if (!einInput) return;
+        einInput.maxLength = 10;
+        einInput.addEventListener('input', function() {
+            let value = this.value.replace(/\D/g, '');
+            if (value.length > 9) value = value.slice(0, 9);
+            if (value.length > 2) {
+                value = value.slice(0, 2) + '-' + value.slice(2);
+            }
+            this.value = value;
+        });
+        // ownership start date
+        var ownershipStartDateInput = business_inform.querySelector('#form-field-ownership_start_date');
+        if (!ownershipStartDateInput) return;
+        ownershipStartDateInput.maxLength = 10;
+        ownershipStartDateInput.addEventListener('input', function() {
+            let value = this.value.replace(/\D/g, '');
+            if (value.length > 6) value = value.slice(0, 6);
+            if (value.length > 2) {
+                value = value.slice(0, 2) + '/' + value.slice(2);
+            }
+            var month = parseInt(value.slice(0, 2), 10);
+            var year = parseInt(value.slice(3, 7), 10);
+            var now = new Date();
+            var currentMonth = now.getMonth() + 1;
+            var currentYear = now.getFullYear();
+            if (year > currentYear || (year === currentYear && month > currentMonth)) {
+                ownershipStartDateInput.setCustomValidity('Please enter the business start date');
+                ownershipStartDateInput.reportValidity();
+            }else{
+                ownershipStartDateInput.setCustomValidity('');
+            }
+            this.value = value;
+        });
+
+        //Business Description
+        var businessDescriptionInput = business_inform.querySelector('#form-field-business_description');
+        if (!businessDescriptionInput) return;
+        businessDescriptionInput.style.resize = 'none';
+        businessDescriptionInput.style.overflowY = 'auto';
+        businessDescriptionInput.style.maxHeight = '150px';
+
+        //Existing MCA
+        var existingMCARadios = business_inform.querySelectorAll('input[name="form_fields[mca_yes_no]"]');
+        if (!existingMCARadios) return;
+        var approximateExistingBalance = business_inform.querySelector('.elementor-field-group-approximate_existing_balance');
+        var withWhichCompany = business_inform.querySelector('.elementor-field-group-with_which_company');
+        approximateExistingBalance.style.display = "none";
+        withWhichCompany.style.display = "none";
+        existingMCARadios.forEach(selectedRadio => {
+            selectedRadio.addEventListener('click', function () {
+                approximateExistingBalance.style.display = this.value === "yes" ? "block" : "none";
+                withWhichCompany.style.display = this.value === "yes" ? "block" : "none";
+            });
+        });
+
+        //Location Information
+        var locationInformationRadios = business_inform.querySelectorAll('input[name="form_fields[location_rent_own]"]');
+        if (!locationInformationRadios) return;
+        var monthlyRentPaymentAmount = business_inform.querySelector('.elementor-field-group-monthly_rent_payment_amount');
+        var landlordContactName = business_inform.querySelector('.elementor-field-group-landlord_contact_name');
+        var landlordPhoneNumber = business_inform.querySelector('.elementor-field-group-landlord_phone_number');
+        var monthlyMortagePaymentAmount = business_inform.querySelector('.elementor-field-group-monthly_mortage_payment_amount');
+        monthlyRentPaymentAmount.style.display = "none";
+        landlordContactName.style.display = "none";
+        landlordPhoneNumber.style.display = "none";
+        monthlyMortagePaymentAmount.style.display = "block";
+        locationInformationRadios.forEach(selectedRadio => {
+            selectedRadio.addEventListener('click', function () {
+                monthlyRentPaymentAmount.style.display = this.value === "rent" ? "block" : "none";
+                landlordContactName.style.display = this.value === "rent" ? "block" : "none";
+                landlordPhoneNumber.style.display = this.value === "rent" ? "block" : "none";
+                monthlyMortagePaymentAmount.style.display = this.value === "own" ? "block" : "none";
+            });
+        });
+
+        // landlord phone number
+        var landlordPhoneNumberInput = business_inform.querySelector('#form-field-landlord_phone_number');
+        if (!landlordPhoneNumberInput) return;
+        if(landlordPhoneNumberInput){
+            landlordPhoneNumberInput.setAttribute('maxlength', 14);
+            landlordPhoneNumberInput.addEventListener("input", () => {
+                let numbers = landlordPhoneNumberInput.value.replace(/\D/g, "");
+                numbers = numbers.substring(0, 10);
+                let formatted = "";
+                if (numbers.length > 0) {
+                    formatted = "(" + numbers.substring(0, 3);
+                }
+                if (numbers.length >= 4) {
+                    formatted += ") " + numbers.substring(3, 6);
+                }
+                if (numbers.length >= 7) {
+                    formatted += "-" + numbers.substring(6, 10);
+                }
+                landlordPhoneNumberInput.value = formatted;
+                if (isValidPhoneNumber(landlordPhoneNumberInput.value)) {
+                    landlordPhoneNumberInput.setCustomValidity('');
+                }else{
+                    landlordPhoneNumberInput.setCustomValidity('Please enter a valid phone number');
+                    landlordPhoneNumberInput.reportValidity();
+                }
+            });
+        }
+
+        // submit
+        business_inform.addEventListener("submit", function(event) {
+            event.preventDefault();
+            var formData = new FormData(this);
+            setTimeout(() => {
+                gtag('event', 'form_success', {
+                    form_name: 'Business Information Form',
+                    page_path: window.location.pathname
+                });
+                //business_inform.reset();
+                history.pushState(null, '', '/apply/?owner-info');
+                var step = window.location.search.replace("?", "");
+                applyToStep(step);
+            }, 1500);
+        });
+    });
+</script>

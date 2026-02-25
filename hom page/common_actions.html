@@ -1,0 +1,230 @@
+<script>
+    var industryOptions = {
+        "advertising_marketing": [
+            "Digital Advertising/Media Groups",
+            "Lead Generation",
+            "Other (Advertising and Marketing)"
+        ],
+        "automotive": [
+            "Automotive Customization",
+            "Automotive Repair",
+            "Automotive Sales",
+            "Gas Station",
+            "Other (Automotive)",
+            "Parking Garages",
+            "Tire Shop",
+            "Transmission shop"
+        ],
+        "business_services": [
+            "Auction, Appraisal and Exchange Services",
+            "Import/Export",
+            "Mailing/ Shipping",
+            "Printing (Have equipment)",
+            "Staffing Service",
+            "Syndicating Partner"
+        ],
+        "construction": [
+            "Excavation Work",
+            "Home Builders",
+            "Home Improvement",
+            "Lumber and Wood Products",
+            "Mining",
+            "Paving/ Sealing/ Concrete",
+            "Roofing Siding and Sheet Metal Work",
+            "Other (Construction)"
+        ], 
+        "consulting": [
+            "Architecture",
+            "Engineering/Design",
+            "Interior Design",
+            "Other (Consulting)"
+        ],
+        "entertainment": [
+            "Adult Entertainment",
+            "Gambling/Casino",
+            "Other (Entertainment)"
+        ],
+        "environmental_services": [
+            "Other (Environmental Services)",
+            "Pest Control",
+            "Waste Disposal/ Recycling / Trash Recycling"
+        ],
+        "equipment_rentals_sales": [
+            "Other (Equipment Rentals)"
+        ],
+        "financial_services": [
+            "ATM Services",
+            "Collection Agency",
+            "Insurance",
+            "Other (Financial Services)"
+        ],
+        "food_and_beverage": [
+            "Bakeries",
+            "Bar and Grill",
+            "Bar/Pub",
+            "Catering",
+            "Grocery / Supermarket",
+            "Liquor store",
+            "Livestock",
+            "Restaurant",
+            "Restaurant (Quick Service/Fast Food)",
+            "Steakhouse",
+            "Other (Food and Beverage)"
+        ],
+        "hospitality": [
+            "Hotel",
+            "Travel Agency",
+            "Other (Hospitality)"
+        ],
+        "manufacturing": ["Other (Manufacturing)"],
+        "medical": [
+            "Animal Hospital / Veterinarian",   
+            "Chiropractor",
+            "Dentist",
+            "Doctor",
+            "Healthcare",
+            "Home Health Care",
+            "Hospices",
+            "Other (Medical)"
+        ],
+        "miscellaneous_repair_services": [
+            "Lawn Mower Repair",
+            "Miscellaneous Repair Services (Other)"
+        ],
+        "personal_services": [
+            "Beauty Shops",
+            "Salon",
+            "Salon / Spa / Hair / Nails",
+            "Tanning Salon",
+            "Miscellaneous Personal Services"
+        ],
+        "professional_services": [
+            "Accountants / CPAs",
+            "Bail Bondsmen",
+            "Law Firm / Lawyers",
+            "Other (Professional Services)"
+        ],
+        "real_estate": [
+            "Property Management Company",
+            "Real Estate Investment",
+            "Real Estate Rentals",
+            "Real Estate Sales",
+            "Golf",
+            "Gym",
+            "Other (Recreation)",
+            "Other (Real Estate)"
+        ],
+        "retail": [
+            "Antiques",
+            "Appliance Sales",
+            "Art Galleries",
+            "Bike Store",
+            "Bridal / Wedding",
+            "Cellular Store",
+            "Clothing Store",
+            "Consignment",
+            "Convenience Store",
+            "Electronics",
+            "Florist",
+            "Furniture Store / Sales",
+            "Gift Shops",
+            "Gun Shop",
+            "Jewelry Store",
+            "Mattress Sales",
+            "Miscellaneous Retail Store (Retail)",
+            "Nutritional Products / Supplements",
+            "Pawn Shops",
+            "Pet Supplies",
+            "Pharmacy",
+            "Shoe Stores",
+            "Sporting Goods Stores",
+            "Tobacco / Smoke Shops",
+            "Toy Stores / Hobby Shops"
+        ],
+        "school_day_care": [
+            "Arts and Crafts",
+            "Learning Institutions"
+        ],
+        "security_services": ["Other (Security Services)"],
+        "service": [
+            "Carwash",  
+            "Dry Cleaning",
+            "Funeral Homes",
+            "Janitorial / Cleaning",
+            "Landscaping",
+            "Other (Service)"
+        ],
+        "software_technology": ["Other (Software/Technology)"],
+        "telecommunications": [
+            "Radio / Television",
+            "Other (Telecommunications)"
+        ],
+        "tradesworkers_electricians_tillers_etc": [
+            "Electricians",
+            "Flooring", 
+            "Heating and Air Conditioning",
+            "Painters",
+            "Plumbing",
+            "Other (Tradesworkers)"
+        ],
+        "transportation": [
+            "Freight Brokers / Logistics",
+            "Limousine / Taxi Company",
+            "Medical Transportation / Ambulances",
+            "Moving and Storage",
+            "Towing"
+        ],
+        "trucking": ["Other (Trucking)"],
+        "wholesale": [
+            "Clothing Wholesale",
+            "Wholesale Beer and Beverage",
+            "Wholesale Electronics",
+            "Wholesale Food Distributors",
+            "Other (Wholesale)"
+        ],
+    };
+    document.addEventListener('DOMContentLoaded', function () {
+        var basic_form = document.querySelector('form[name="basic"]');
+        if (!basic_form) return;
+        var selects = basic_form.querySelectorAll('select');
+        selects.forEach(select => {
+            var attempts = 0;
+            var maxAttempts = 50;
+            function findStepDivAndSetup() {
+                var stepDiv = select.closest('.elementor-field-type-step');
+                if (stepDiv !== null) {
+                    var nextBtn = stepDiv.querySelector('.e-form__buttons__wrapper__button-next');
+                    if (nextBtn) {
+                        nextBtn.style.display = 'none';
+                        select.addEventListener('change', function () {
+                            if (nextBtn) {
+                                if(select.id === 'form-field-basic_industry_parent'){
+                                    var selectedIndustry = this.value;
+                                    var subIndustrySelect = document.querySelector('#form-field-basic_industry_sub');
+                                    subIndustrySelect.innerHTML = '<option value=""></option>';
+                                    if (industryOptions[selectedIndustry]) {
+                                        industryOptions[selectedIndustry].forEach(subIndustry => {
+                                            var option = document.createElement("option");
+                                            option.value = subIndustry;
+                                            option.textContent = subIndustry;
+                                            subIndustrySelect.appendChild(option);
+                                        });
+                                    }
+                                }
+                                else{
+                                    nextBtn.click();
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    attempts++;
+                    if (attempts < maxAttempts) {
+                        setTimeout(findStepDivAndSetup, 200);
+                    }
+                }
+            }
+            findStepDivAndSetup();
+        });
+    });
+</script>

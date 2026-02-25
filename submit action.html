@@ -1,0 +1,25 @@
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var basic_form2 = document.querySelector('form[name="basic"]');
+        if (!basic_form2) return;
+        basic_form2.addEventListener("submit", function(event) {
+            event.preventDefault();
+            var formData = new FormData(this);
+            function findSuccessMessage() {
+                var success_message = basic_form2.querySelector('.elementor-message-success"]');
+                console.log("success_message", success_message.length);
+                if (success_message.length !== 0) {
+                    window.location.href = "https://crystalcapp.com/business-revenue-verification/";
+                } else {
+                    setTimeout(findSuccessMessage, 500);
+                }
+            }
+            findSuccessMessage();
+
+        });
+        // basic_form2.addEventListener("submit_success", function () {
+        //     console.log("submit_success");
+        //     window.location.href = "https://crystalcapp.com/business-revenue-verification/";
+        // });
+    });
+</script>

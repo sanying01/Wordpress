@@ -1,0 +1,44 @@
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var voidedCheckForm = document.querySelector('form[name="voided_check_form"]');
+        if (!voidedCheckForm) return;
+        // file upload
+        var uploadInput = voidedCheckForm.querySelector('.upload-btn input');
+        var fileInfo = voidedCheckForm.querySelector('.file-info');
+        var fileNameSpan = voidedCheckForm.querySelector('.file-name');
+        var deleteIcon = voidedCheckForm.querySelector('.delete-file');
+        var errorMessage = voidedCheckForm.querySelector('.voided-check-file-error');
+
+        uploadInput.addEventListener('change', () => {
+            if (uploadInput.files.length) {
+                errorMessage.style.display = 'none';
+                fileNameSpan.textContent = uploadInput.files[0].name;
+                fileInfo.style.display = 'flex';
+            }
+        });
+
+        // Delete file
+        deleteIcon.addEventListener('click', () => {
+            uploadInput.value = '';
+            fileInfo.style.display = 'none';
+        });
+
+        voidedCheckForm.addEventListener("submit", function(event) {
+            event.preventDefault(); // stop form submission
+            event.stopImmediatePropagation();
+            var formData = new FormData(this);
+            if (!uploadInput.files || uploadInput.files.length === 0) {
+                errorMessage.style.display = 'block';
+                return;
+            }
+            errorMessage.style.display = 'none';
+            setTimeout(() => {
+                voidedCheckForm.reset();
+                history.pushState(null, '', '/apply/?thank-you-lr');
+                var step = window.location.search.replace("?", "");
+                applyToStep(step);
+            }, 1500);
+
+        }, true);
+    });
+</script>

@@ -1,0 +1,65 @@
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var default_step = window.location.search.replace("?", "");
+        if (!default_step) {
+            history.pushState(null, '', '/apply/?business-revenue-verification');
+            default_step = window.location.search.replace("?", "");
+        }
+        window.applyToStep = function(step) {
+            var steps = [
+                "business-revenue-verification",
+                "business-revenue-verification1",
+                "business-info",
+                "owner-info",
+                "identity-verification",
+                "voided-check-verification",
+                "application",
+                "thank-you-lr"
+            ];
+            var savedFname = localStorage.getItem('first_name');
+            if (savedFname) {
+                document.getElementById('user_fname').textContent = savedFname;
+            }
+
+            steps.forEach(id => {
+                var el = document.getElementById(id);
+                if (el) el.style.display = "none";
+            });
+
+            if (step && document.getElementById(step)) {
+                document.getElementById(step).style.display = "block";
+            } else {
+                document.getElementById("business-revenue-verification").style.display = "block";
+            }
+        }
+        applyToStep(default_step);
+        
+        window.addEventListener('popstate', () => {
+            var step = window.location.search.replace("?", "");
+            applyToStep(step);
+        });
+
+        var step_links = document.querySelectorAll('.step_link');
+        step_links.forEach(link => {
+            link.addEventListener("click", function(event) {
+                if (event.target.matches('span[data-id]')) {
+                    history.pushState(null, '', '/apply/?' + event.target.dataset.id);
+                    var step = window.location.search.replace("?", "");
+                    applyToStep(step);
+                }
+            });
+        });
+
+        var back_to_step_btns = document.querySelectorAll('.back-to-step-btn');
+        back_to_step_btns.forEach(btn => {
+            btn.addEventListener("click", function(event) {
+                var a_tag = this.querySelector('a'); // select the <a> inside the div
+                var btn_id = a_tag.id;
+                var step_id = btn_id.replace('button-', '');
+                history.pushState(null, '', '/apply/?' + step_id);
+                var step = window.location.search.replace("?", "");
+                applyToStep(step);
+            });
+        });
+    });
+</script>

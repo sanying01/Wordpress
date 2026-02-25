@@ -1,0 +1,102 @@
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var basic_form1 = document.querySelector('form[name="basic"]');
+        if (!basic_form1) return;
+        var attempts1 = 0;
+        var maxAttempts1 = 50;
+        var basic_form_checkbox = null;
+
+        function isValidPhoneNumber(phone) {
+            var regex = /^\(\d{3}\) \d{3}-\d{4}$/;
+            return regex.test(phone);
+        }
+
+        function findStepNextBtn() {
+            var nextButtons = basic_form1.querySelectorAll('.e-form__buttons__wrapper__button-next');
+            if (nextButtons.length !== 0) {
+                nextButtons.forEach(nextbtn => {
+                    var stepDiv = nextbtn.closest('.elementor-field-type-step');
+                    var emailInput = stepDiv.querySelector('#form-field-basic_email');
+                    var phoneInput = stepDiv.querySelector('#form-field-basic_phone_number');
+                    var checkboxInput = stepDiv.querySelector('#form-field-basic_terms_checkbox-0');
+                    if(phoneInput){
+                        phoneInput.setAttribute('maxlength', 14);
+                        phoneInput.addEventListener("input", () => {
+                            let numbers = phoneInput.value.replace(/\D/g, "");
+                            numbers = numbers.substring(0, 10);
+                            let formatted = "";
+                            if (numbers.length > 0) {
+                                formatted = "(" + numbers.substring(0, 3);
+                            }
+                            if (numbers.length >= 4) {
+                                formatted += ") " + numbers.substring(3, 6);
+                            }
+                            if (numbers.length >= 7) {
+                                formatted += "-" + numbers.substring(6, 10);
+                            }
+                            phoneInput.value = formatted;
+                            if (isValidPhoneNumber(phoneInput.value)) {
+                                phoneInput.setCustomValidity('');
+                            }
+                        });
+                    }
+                    if(checkboxInput){
+                        checkboxInput.addEventListener('change', function () {
+                            if (checkboxInput.checked) {
+                                basic_form_checkbox = "checked";
+                                checkboxInput.setCustomValidity('');
+                            }else{
+                                basic_form_checkbox = null;
+                            }
+                            console.log("basic_form_checkbox1", basic_form_checkbox);
+                        });
+                    }
+                    // Always attach click handler if there are any fields to validate
+                    if(emailInput || phoneInput || checkboxInput){
+                        nextbtn.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            
+                            var isValid = true;
+                            
+                            if(emailInput){
+                                if (!emailInput.checkValidity()) {
+                                    emailInput.reportValidity();
+                                    isValid = false;
+                                }
+                            }
+                            if(phoneInput){
+                                phoneInput.setCustomValidity('');
+                                if (!isValidPhoneNumber(phoneInput.value)) {
+                                    phoneInput.setCustomValidity('Please enter a valid phone number');
+                                    phoneInput.reportValidity();
+                                    isValid = false;
+                                }
+                            }
+                            if(checkboxInput){
+                                // Check both the variable and the actual checkbox state
+                                if (basic_form_checkbox === null || !checkboxInput.checked) {
+                                    checkboxInput.setCustomValidity('Please accept the terms and conditions');
+                                    checkboxInput.reportValidity();
+                                    isValid = false;
+                                } else {
+                                    checkboxInput.setCustomValidity('');
+                                }
+                            }
+                            
+                            if (!isValid) {
+                                return false;
+                            }
+                        });
+                    }
+                });
+            } else {
+                attempts1++;
+                if (attempts1 < maxAttempts1) {
+                    setTimeout(findStepNextBtn, 200);
+                }
+            }
+        }
+        findStepNextBtn();
+    });
+</script>

@@ -1,0 +1,15 @@
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var basic_form2 = document.querySelector('form[name="basic"]');
+        if (!basic_form2) return;
+        basic_form2.addEventListener("submit", function(event) {
+            event.preventDefault();
+            var formData = new FormData(this);
+            setTimeout(() => {
+                basic_form2.reset();
+                window.location.href = "https://crystalcapp.com/apply?business-revenue-verification";
+            }, 1500);
+
+        });
+    });
+</script>

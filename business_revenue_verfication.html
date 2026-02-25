@@ -1,0 +1,107 @@
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var bankStatementsDocSection = document.querySelector('#business-revenue-verification1');
+        if (!bankStatementsDocSection) return;
+        var bankStatementsDocForm = document.querySelector('form[name="bank_statements_doc_form"]');
+        if (!bankStatementsDocForm) return;
+        var uploadWrappers = bankStatementsDocForm.querySelectorAll('.upload-wrapper');
+        if (!uploadWrappers) return;
+        var revenue_checkbox = bankStatementsDocSection.querySelector('#revenue_checkbox');
+        if(!revenue_checkbox) return;
+        var cards = bankStatementsDocForm.querySelectorAll('.elementor-field-group-bank_statement1, .elementor-field-group-bank_statement2, .elementor-field-group-bank_statement3, .elementor-field-group-bank_statement4');
+        if (cards.length) {
+            var doc_cards_wrapper = document.createElement('div');
+            doc_cards_wrapper.className = 'doc-cards-wrapper';
+            cards[0].parentNode.insertBefore(doc_cards_wrapper, cards[0]);
+            cards.forEach(function(card) {
+                doc_cards_wrapper.appendChild(card);
+            });
+            doc_cards_wrapper.style.display = 'flex';
+            doc_cards_wrapper.style.justifyContent = 'center';
+        }
+
+        var uploadedFilesNumber = 0;
+        var toUploadFilesNumber = 3;
+        // file upload
+        uploadWrappers.forEach(uploadWrapper => {
+            var uploadInput = uploadWrapper.querySelector('.upload-card input');
+            var fileInfo = uploadWrapper.querySelector('.file-info');
+            var fileNameSpan = uploadWrapper.querySelector('.file-name');
+            var deleteIcon = uploadWrapper.querySelector('.delete-file');
+    
+            uploadInput.addEventListener('change', () => {
+                if (uploadInput.files.length) {
+                    fileNameSpan.textContent = uploadInput.files[0].name;
+                    fileInfo.style.display = 'flex';
+                    uploadedFilesNumber++;
+                }else{
+                    uploadedFilesNumber--;
+                }
+            });
+    
+            // Delete file
+            deleteIcon.addEventListener('click', () => {
+                uploadInput.value = '';
+                fileInfo.style.display = 'none';
+            });
+        });
+
+        var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        function getLastMonths(numberOfMonths) {
+            var months = [];
+            var today = new Date();
+
+            for (let i = 0; i < numberOfMonths; i++) {
+                var d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                months.push({
+                    label: `${monthNames[d.getMonth()]} ${d.getFullYear()}`
+                });
+            }
+            return months.reverse();
+        }
+        function getLastMonthNamesCards(numberOfMonths) {
+            var num = 1;
+            getLastMonths(numberOfMonths).forEach(item => {
+                var monthName = bankStatementsDocForm.querySelector('.month-name' + num);
+                monthName.textContent = item.label;
+                num++;
+            });
+        }
+        getLastMonthNamesCards(3);
+        revenue_checkbox.addEventListener('click', function() {
+            if(this.checked) {
+                bankStatementsDocSection.querySelector('#ca_ny_business_onwers').style.display = 'block';
+                bankStatementsDocForm.querySelector('.elementor-field-group-bank_statement4').style.display = 'block';
+                bankStatementsDocForm.querySelector('.last_bank_statement_card').style.display = 'block';
+                bankStatementsDocForm.querySelector('.elementor-form-fields-wrapper').style.display = 'flex';
+                toUploadFilesNumber = 4;
+                getLastMonthNamesCards(4);
+            } else {
+                bankStatementsDocSection.querySelector('#ca_ny_business_onwers').style.display = 'none';
+                bankStatementsDocForm.querySelector('.elementor-field-group-bank_statement4').style.display = 'none';
+                bankStatementsDocForm.querySelector('.last_bank_statement_card').style.display = 'none';
+                bankStatementsDocForm.querySelector('.elementor-form-fields-wrapper').style.display = 'block';
+                toUploadFilesNumber = 3;
+                getLastMonthNamesCards(3);
+            }
+        });
+        bankStatementsDocForm.addEventListener("submit", function(event) {
+            event.preventDefault(); // stop form submission
+            event.stopImmediatePropagation();
+            var formData = new FormData(this);
+            if (uploadedFilesNumber <= 0) {
+                return;
+            }else if(uploadedFilesNumber < toUploadFilesNumber) {
+                if (!confirm('Are you sure you want to continue without uploading all ' + toUploadFilesNumber + ' statements?')) return;
+            }
+            setTimeout(() => {
+                //bankStatementsDocForm.reset();
+                history.pushState(null, '', '/apply/?business-info');
+                var step = window.location.search.replace("?", "");
+                applyToStep(step);
+            }, 1500);
+
+        }, true);
+    });
+</script>

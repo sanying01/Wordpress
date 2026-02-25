@@ -1,0 +1,15 @@
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var applicationForm = document.querySelector('form[name="application_form"]');
+        if (!applicationForm) return;
+
+        applicationForm.addEventListener("submit", function(event) {
+            event.preventDefault(); // stop form submission
+            setTimeout(() => {
+                voidedCheckForm.reset();
+                window.location.href = "https://crystalcapp.com/apply?thank-you-lr";
+            }, 1500);
+
+        });
+    });
+</script>
