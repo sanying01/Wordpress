@@ -1,26 +1,11 @@
 <?php
-/**
- * Theme functions and definitions.
- *
- * For additional information on potential customization options,
- * read the developers' documentation:
- *
- * https://developers.elementor.com/docs/hello-elementor-theme/
- *
- * @package HelloElementorChild
- */
 
 if ( ! defined( 'ABSPATH' ) ) {
-	exit; // Exit if accessed directly.
+	exit;
 }
 
 define( 'HELLO_ELEMENTOR_CHILD_VERSION', '2.0.0' );
 
-/**
- * Load child theme scripts & styles.
- *
- * @return void
- */
 function hello_elementor_child_scripts_styles() {
 
 	wp_enqueue_style(
@@ -37,7 +22,6 @@ add_action( 'wp_enqueue_scripts', 'hello_elementor_child_scripts_styles', 20 );
 
 function add_ga4_tracking_code() {
     ?>
-    <!-- Google Analytics GA4 -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-QH7MM2ZTC2"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -100,13 +84,6 @@ function save_multi_form_client_data($record, $handler) {
     $submission_id = get_client_submission_id();
     $table = $wpdb->prefix . 'client_applications';
 
-    // Collect form fields
-    $fields = [];
-    foreach ($record->get('fields') as $key => $field) {
-        $fields[$key] = $field['value'];
-    }
-    
-    // Map form → column
     $column_map = [
         'basic'    => [
             "basic_purpose_of_funding" => "basic_purpose_of_funding",
@@ -163,28 +140,189 @@ function save_multi_form_client_data($record, $handler) {
             "owner_title" => "owner_title",
             "owner_ssn" => "owner_ssn",
             "own_100percent" => "own_100percent",
+            "signature" => "signature"
         ],
-        'id_verification_form' => 'driver_license',
-        'voided_check_form'  => 'voided_check'
+        'id_verification_form' => [
+            "driver_license" => "driver_license",
+        ],
+        'voided_check_form'  => [
+            "voided_check" => "voided_check"
+        ]
     ];
 
+    // Get allowed fields for the current form
+    $allowed_fields = isset($column_map[$form_name]) ? array_keys($column_map[$form_name]) : [];
+
+    $fields = [];
+    foreach ($record->get('fields') as $key => $field) {
+        // Only process fields that are in the allowed list
+        if (in_array($key, $allowed_fields)) {
+            $fields[$key] = $field['value'];
+        }
+    }
+    
+    $handler->add_response_data( 'backend_test',  $fields);
+
+    if (isset($fields['signature']) && !empty($fields['signature'])) {
+        $signature_data = $fields['signature'];
+        
+        if (preg_match('/^data:image\/(\w+);base64,(.+)$/', $signature_data, $matches)) {
+            $image_type = $matches[1];
+            $base64_data = $matches[2];
+            
+            $image_data = base64_decode($base64_data);
+            
+            if ($image_data !== false) {
+                $upload_dir = wp_upload_dir();
+                $signatures_dir = $upload_dir['basedir'] . '/signatures';
+                
+                if (!file_exists($signatures_dir)) {
+                    wp_mkdir_p($signatures_dir);
+                }
+                
+                $filename = 'signature_' . $submission_id . '_' . time() . '.' . $image_type;
+                $file_path = $signatures_dir . '/' . $filename;
+                
+                if (file_put_contents($file_path, $image_data)) {
+                    $signature_url = $upload_dir['baseurl'] . '/signatures/' . $filename;
+                    $fields['signature'] = $signature_url;
+                } else {
+                    $fields['signature'] = $signature_data;
+                }
+            }
+        }
+    }
+
+    if (isset($_FILES) && !empty($_FILES)) {
+        $upload_dir = wp_upload_dir();
+        $uploads_dir = $upload_dir['basedir'] . '/form-uploads';
+        
+        if (!file_exists($uploads_dir)) {
+            wp_mkdir_p($uploads_dir);
+        }
+        
+        if (isset($_FILES['form_fields']) && is_array($_FILES['form_fields'])) {
+            $form_files = $_FILES['form_fields'];
+            
+            if (isset($form_files['name']) && is_array($form_files['name'])) {
+                foreach ($form_files['name'] as $field_key => $file_name) {
+                    if (empty($file_name) || 
+                        (isset($form_files['error'][$field_key]) && $form_files['error'][$field_key] == 4)) {
+                        continue;
+                    }
+                    
+                    if (isset($form_files['error'][$field_key]) && $form_files['error'][$field_key] !== UPLOAD_ERR_OK) {
+                        continue;
+                    }
+                    
+                    $tmp_name = isset($form_files['tmp_name'][$field_key]) ? $form_files['tmp_name'][$field_key] : '';
+                    $file_type = isset($form_files['type'][$field_key]) ? $form_files['type'][$field_key] : '';
+                    $file_size = isset($form_files['size'][$field_key]) ? $form_files['size'][$field_key] : 0;
+                    
+                    if (empty($tmp_name) || !is_uploaded_file($tmp_name) || !is_readable($tmp_name)) {
+                        continue;
+                    }
+                    
+                    $max_size = 10 * 1024 * 1024;
+                    if ($file_size > $max_size) {
+                        continue;
+                    }
+                    
+                    $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
+                    
+                    $unique_filename = sanitize_file_name($field_key . '_' . $submission_id . '_' . time() . '.' . $file_extension);
+                    $destination_path = $uploads_dir . '/' . $unique_filename;
+                    
+                    if (move_uploaded_file($tmp_name, $destination_path)) {
+                        $file_url = $upload_dir['baseurl'] . '/form-uploads/' . $unique_filename;
+                        
+                        $fields[$field_key] = $file_url;
+                    }
+                }
+            }
+        } else {
+            foreach ($_FILES as $field_key => $file_data) {
+                if (empty($file_data['name']) || 
+                    (isset($file_data['error']) && $file_data['error'] !== UPLOAD_ERR_OK)) {
+                    continue;
+                }
+                
+                if (!is_array($file_data['name'])) {
+                    $tmp_name = isset($file_data['tmp_name']) ? $file_data['tmp_name'] : '';
+                    $file_name = isset($file_data['name']) ? $file_data['name'] : '';
+                    $file_size = isset($file_data['size']) ? $file_data['size'] : 0;
+                    
+                    if (empty($tmp_name) || !is_uploaded_file($tmp_name) || !is_readable($tmp_name)) {
+                        continue;
+                    }
+                    
+                    $max_size = 10 * 1024 * 1024;
+                    if ($file_size > $max_size) {
+                        continue;
+                    }
+                    
+                    $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
+                    
+                    $unique_filename = sanitize_file_name($field_key . '_' . $submission_id . '_' . time() . '.' . $file_extension);
+                    $destination_path = $uploads_dir . '/' . $unique_filename;
+                    
+                    if (move_uploaded_file($tmp_name, $destination_path)) {
+                        $file_url = $upload_dir['baseurl'] . '/form-uploads/' . $unique_filename;
+                        $fields[$field_key] = $file_url;
+                    }
+                } else {
+                    foreach ($file_data['name'] as $index => $file_name) {
+                        if (empty($file_name) || 
+                            (isset($file_data['error'][$index]) && $file_data['error'][$index] !== UPLOAD_ERR_OK)) {
+                            continue;
+                        }
+                        
+                        $tmp_name = isset($file_data['tmp_name'][$index]) ? $file_data['tmp_name'][$index] : '';
+                        $file_size = isset($file_data['size'][$index]) ? $file_data['size'][$index] : 0;
+                        
+                        if (empty($tmp_name) || !is_uploaded_file($tmp_name) || !is_readable($tmp_name)) {
+                            continue;
+                        }
+                        
+                        $max_size = 10 * 1024 * 1024;
+                        if ($file_size > $max_size) {
+                            continue;
+                        }
+                        
+                        $file_extension = pathinfo($file_name, PATHINFO_EXTENSION);
+                        $unique_filename = sanitize_file_name($field_key . '_' . $index . '_' . $submission_id . '_' . time() . '.' . $file_extension);
+                        $destination_path = $uploads_dir . '/' . $unique_filename;
+                        
+                        if (move_uploaded_file($tmp_name, $destination_path)) {
+                            $file_url = $upload_dir['baseurl'] . '/form-uploads/' . $unique_filename;
+                            
+                            if (!isset($fields[$field_key])) {
+                                $fields[$field_key] = $file_url;
+                            } else {
+                                $fields[$field_key] = (is_array($fields[$field_key]) ? $fields[$field_key] : [$fields[$field_key]]);
+                                $fields[$field_key][] = $file_url;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+   
     $column_info = $column_map[$form_name];
 
     $update_data = [];
 
     if (is_array($column_info)) {
-        // multiple columns per field
         foreach ($column_info as $field_key => $column_name) {
             if (isset($fields[$field_key])) {
                 $update_data[$column_name] = $fields[$field_key];
             }
         }
     } else {
-        // single column storing all data
         $update_data[$column_info] = maybe_serialize($fields);
     }
-
-    // Check if row exists
     $exists = $wpdb->get_var(
         $wpdb->prepare(
             "SELECT id FROM $table WHERE submission_id = %s",
@@ -220,9 +358,49 @@ function save_multi_form_client_data($record, $handler) {
     }
 }
 
+// Fix for Elementor Pro form_fields undefined array key error
+function ensure_elementor_form_fields_exists() {
+	// Check if this is an Elementor Pro form AJAX request
+	if (defined('DOING_AJAX') && DOING_AJAX) {
+		$action = isset($_POST['action']) ? $_POST['action'] : (isset($_REQUEST['action']) ? $_REQUEST['action'] : '');
+		
+		if (strpos($action, 'elementor_pro_forms') !== false || strpos($action, 'elementor') !== false) {
+			// Ensure form_fields exists in POST data
+			if (!isset($_POST['form_fields'])) {
+				if (isset($_POST['fields']) && is_array($_POST['fields'])) {
+					$_POST['form_fields'] = $_POST['fields'];
+				} elseif (isset($_REQUEST['fields']) && is_array($_REQUEST['fields'])) {
+					$_POST['form_fields'] = $_REQUEST['fields'];
+				} else {
+					$_POST['form_fields'] = [];
+				}
+			}
+			
+			// Also ensure it exists in REQUEST for compatibility
+			if (!isset($_REQUEST['form_fields']) && isset($_POST['form_fields'])) {
+				$_REQUEST['form_fields'] = $_POST['form_fields'];
+			}
+		}
+	}
+}
+
+// Run at multiple hooks to ensure we catch the request early enough
+add_action('muplugins_loaded', 'ensure_elementor_form_fields_exists', 1);
+add_action('plugins_loaded', 'ensure_elementor_form_fields_exists', 1);
+add_action('init', 'ensure_elementor_form_fields_exists', 1);
+
+// Additional filter for Elementor form data (if the hook exists)
+function fix_elementor_form_data($record_data) {
+	if (is_array($record_data) && !isset($record_data['form_fields']) && isset($record_data['fields'])) {
+		$record_data['form_fields'] = $record_data['fields'];
+	}
+	return $record_data;
+}
+add_filter('elementor_pro/forms/ajax_request', 'fix_elementor_form_data', 1);
+
 add_action(
-    'elementor_pro/forms/new_record',
-    'save_multi_form_client_data',
-    10,
-    2
+	'elementor_pro/forms/new_record',
+	'save_multi_form_client_data',
+	10,
+	2
 );

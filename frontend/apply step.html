@@ -39,6 +39,20 @@
             applyToStep(step);
         });
 
+        // initialize signature
+        var observer = new MutationObserver(() => {
+            var $sig = document.getElementById('form-field-signature');
+
+            if ($sig.length && !$sig.data('signature')) {
+                $sig.signature();
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        ////////////////////
         var step_links = document.querySelectorAll('.step_link');
         step_links.forEach(link => {
             link.addEventListener("click", function(event) {

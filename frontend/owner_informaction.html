@@ -17,6 +17,15 @@
         return true;
     }
 
+    function mmddyyyyToYyyymmdd(dateStr) {
+        if (!dateStr) return '';
+        const clean = dateStr.replace(/-/g, '/');
+        const parts = clean.split('/');
+        if (parts.length !== 3) return '';
+        const [mm, dd, yyyy] = parts.map(v => String(v).padStart(2, '0'));
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
     function validateSSN(value) {
         if (value.length !== 11) return;
         const [area, group, serial] = value.split("-");
@@ -76,8 +85,10 @@
             console.log('Selected Address:', place.formatted_address);
         });
         // ownership start date
-        var ownerBirthInput = owner_inform.querySelector('#form-field-owner_birth');
+        var ownerBirthInput = owner_inform.querySelector('#form-field-owner_birth1');
         if (!ownerBirthInput) return;
+        var ownerBirthInput1 = owner_inform.querySelector('#form-field-owner_birth');
+        if (!ownerBirthInput1) return;
         ownerBirthInput.maxLength = 10;
         ownerBirthInput.addEventListener('input', function() {
             var value = ownerBirthInput.value.replace(/\D/g, ""); // numbers only
@@ -87,7 +98,6 @@
             } else if (value.length >= 3) {
                 value = value.replace(/^(\d{2})(\d{0,2})$/, "$1/$2");
             }
-
             if (!validateDate(value)) {
                 ownerBirthInput.setCustomValidity('Please enter a valid date of birth');
                 ownerBirthInput.reportValidity();
@@ -95,6 +105,7 @@
                 ownerBirthInput.setCustomValidity('');
             }
             ownerBirthInput.value = value;
+            ownerBirthInput1.value = mmddyyyyToYyyymmdd(value);
         });
 
         // ssn
@@ -141,10 +152,10 @@
                     form_name: 'Owner Information Form',
                     page_path: window.location.pathname
                 });
-                //owner_inform.reset();
-                history.pushState(null, '', '/apply/?identity-verification');
-                var step = window.location.search.replace("?", "");
-                applyToStep(step);
+                owner_inform.reset();
+                // history.pushState(null, '', '/apply/?identity-verification');
+                // var step = window.location.search.replace("?", "");
+                // applyToStep(step);
             }, 1500);
         });
     });

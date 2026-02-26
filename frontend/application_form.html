@@ -6,9 +6,14 @@
         applicationForm.addEventListener("submit", function(event) {
             event.preventDefault(); // stop form submission
             setTimeout(() => {
-                history.pushState(null, '', '/apply/?thank-you-lr');
-                var step = window.location.search.replace("?", "");
-                applyToStep(step);
+                gtag('event', 'form_success', {
+                    form_name: 'Submit application form',
+                    page_path: window.location.pathname
+                });
+                applicationForm.reset();
+                // history.pushState(null, '', '/apply/?thank-you-lr');
+                // var step = window.location.search.replace("?", "");
+                // applyToStep(step);
             }, 1500);
 
         });

@@ -6,8 +6,11 @@
             event.preventDefault();
             var formData = new FormData(this);
             setTimeout(() => {
+                gtag('event', 'form_success', {
+                    form_name: 'Basic Information Form',
+                    page_path: window.location.pathname
+                });
                 basic_form2.reset();
-                window.location.href = "https://crystalcapp.com/apply?business-revenue-verification";
             }, 1500);
 
         });

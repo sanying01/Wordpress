@@ -2,6 +2,7 @@
     document.addEventListener("DOMContentLoaded", function () {
         var voidedCheckForm = document.querySelector('form[name="voided_check_form"]');
         if (!voidedCheckForm) return;
+        voidedCheckForm.setAttribute('enctype', 'multipart/form-data');
         // file upload
         var uploadInput = voidedCheckForm.querySelector('.upload-btn input');
         var fileInfo = voidedCheckForm.querySelector('.file-info');
@@ -24,19 +25,22 @@
         });
 
         voidedCheckForm.addEventListener("submit", function(event) {
-            event.preventDefault(); // stop form submission
-            event.stopImmediatePropagation();
             var formData = new FormData(this);
             if (!uploadInput.files || uploadInput.files.length === 0) {
+                event.preventDefault();
                 errorMessage.style.display = 'block';
                 return;
             }
             errorMessage.style.display = 'none';
             setTimeout(() => {
+                gtag('event', 'form_success', {
+                    form_name: 'Funding Account Information Form',
+                    page_path: window.location.pathname
+                });
                 voidedCheckForm.reset();
-                history.pushState(null, '', '/apply/?thank-you-lr');
-                var step = window.location.search.replace("?", "");
-                applyToStep(step);
+                // history.pushState(null, '', '/apply/?thank-you-lr');
+                // var step = window.location.search.replace("?", "");
+                // applyToStep(step);
             }, 1500);
 
         }, true);

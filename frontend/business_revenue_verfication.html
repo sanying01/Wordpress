@@ -87,19 +87,22 @@
             }
         });
         bankStatementsDocForm.addEventListener("submit", function(event) {
-            event.preventDefault(); // stop form submission
-            event.stopImmediatePropagation();
             var formData = new FormData(this);
             if (uploadedFilesNumber <= 0) {
+                event.preventDefault(); // stop form submission
                 return;
             }else if(uploadedFilesNumber < toUploadFilesNumber) {
                 if (!confirm('Are you sure you want to continue without uploading all ' + toUploadFilesNumber + ' statements?')) return;
             }
             setTimeout(() => {
-                //bankStatementsDocForm.reset();
-                history.pushState(null, '', '/apply/?business-info');
-                var step = window.location.search.replace("?", "");
-                applyToStep(step);
+                gtag('event', 'form_success', {
+                    form_name: 'Business Revenue Verification Form',
+                    page_path: window.location.pathname
+                });
+                bankStatementsDocForm.reset();
+                // history.pushState(null, '', '/apply/?business-info');
+                // var step = window.location.search.replace("?", "");
+                // applyToStep(step);
             }, 1500);
 
         }, true);
