@@ -11,8 +11,45 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
+        if (!window.google || !google.maps || !google.maps.places) {
+            console.error('Google Places not loaded');
+            return;
+        }
         var business_inform = document.querySelector('form[name="business_inform"]');
         if (!business_inform) return;
+        //business address
+        var businessAddressInput = business_inform.querySelector('#form-field-bussiness_address');
+        if (!businessAddressInput) return;
+        var autocomplete = new google.maps.places.Autocomplete(businessAddressInput, {
+            types: ['geocode'], // only addresses
+            componentRestrictions: { country: 'us' } // optional, restrict to a country
+        });
+        autocomplete.addListener('place_changed', function() {
+            var place = autocomplete.getPlace();
+            if (!place.address_components) return;
+            var street = '', city = '', state = '', zip = '';
+
+            place.address_components.forEach(c => {
+                if (c.types.includes('locality')) city = c.long_name;
+                if (c.types.includes('administrative_area_level_1')) state = c.short_name;
+                if (c.types.includes('postal_code')) zip = c.long_name;
+            });
+            businessAddressInput.value = place.formatted_address;
+            business_inform.querySelector('#form-field-business_city').value = city;
+            business_inform.querySelector('#form-field-business_state').value = state;
+            business_inform.querySelector('#form-field-business_zip').value = zip;
+        });
+        //business address2
+        var businessAddressInput2 = business_inform.querySelector('#form-field-bussiness_address2');
+        if (!businessAddressInput2) return;
+        var autocomplete2 = new google.maps.places.Autocomplete(businessAddressInput2, {
+            types: ['geocode'], // only addresses
+            componentRestrictions: { country: 'us' } // optional, restrict to a country
+        });
+        autocomplete2.addListener('place_changed', function() {
+            var place = autocomplete2.getPlace();
+            console.log('Selected Address:', place.formatted_address);
+        });
         // zip code
         var zipInput = business_inform.querySelector('#form-field-business_zip');
         if (!zipInput) return;

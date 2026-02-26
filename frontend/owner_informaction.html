@@ -42,6 +42,39 @@
         zipInput.addEventListener('input', function() {
             this.value = this.value.replace(/\D/g, ''); // remove non-digits
         });
+        //owner address
+        var ownerAddressInput = owner_inform.querySelector('#form-field-owner_address');
+        if (!ownerAddressInput) return;
+        var autocomplete = new google.maps.places.Autocomplete(ownerAddressInput, {
+            types: ['geocode'], // only addresses
+            componentRestrictions: { country: 'us' } // optional, restrict to a country
+        });
+        autocomplete.addListener('place_changed', function() {
+            var place = autocomplete.getPlace();
+            if (!place.address_components) return;
+            var street = '', city = '', state = '', zip = '';
+
+            place.address_components.forEach(c => {
+                if (c.types.includes('locality')) city = c.long_name;
+                if (c.types.includes('administrative_area_level_1')) state = c.short_name;
+                if (c.types.includes('postal_code')) zip = c.long_name;
+            });
+            ownerAddressInput.value = place.formatted_address;
+            owner_inform.querySelector('#form-field-owner_city').value = city;
+            owner_inform.querySelector('#form-field-owner_state').value = state;
+            owner_inform.querySelector('#form-field-owner_zip').value = zip;
+        });
+        //owner address2
+        var ownerAddressInput2 = owner_inform.querySelector('#form-field-owner_address2');
+        if (!ownerAddressInput2) return;
+        var autocomplete2 = new google.maps.places.Autocomplete(ownerAddressInput2, {
+            types: ['geocode'], // only addresses
+            componentRestrictions: { country: 'us' } // optional, restrict to a country
+        });
+        autocomplete2.addListener('place_changed', function() {
+            var place = autocomplete2.getPlace();
+            console.log('Selected Address:', place.formatted_address);
+        });
         // ownership start date
         var ownerBirthInput = owner_inform.querySelector('#form-field-owner_birth');
         if (!ownerBirthInput) return;
@@ -104,6 +137,10 @@
             event.preventDefault();
             var formData = new FormData(this);
             setTimeout(() => {
+                gtag('event', 'form_success', {
+                    form_name: 'Owner Information Form',
+                    page_path: window.location.pathname
+                });
                 //owner_inform.reset();
                 history.pushState(null, '', '/apply/?identity-verification');
                 var step = window.location.search.replace("?", "");
