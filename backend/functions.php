@@ -5,6 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 define( 'HELLO_ELEMENTOR_CHILD_VERSION', '2.0.0' );
+define( 'CRYSTAL_CAPITAL_PARTNERS_API_KEY', '9f3c8a1d2b4e7f9c0a6d8e1b2c4f5a7d9e0c1b2a3d4e5f6a7b8c9d0e1f2a' );
 
 function hello_elementor_child_scripts_styles() {
 
@@ -46,19 +47,29 @@ function enqueue_google_places_api() {
 }
 add_action('wp_enqueue_scripts', 'enqueue_google_places_api');
 
-function get_client_submission_id() {
-    if (isset($_COOKIE['client_submission_id'])) {
+function get_or_create_submission_id() {
+    // 1. POST (AJAX-safe)
+    if (!empty($_POST['submission_id'])) {
+        return sanitize_text_field($_POST['submission_id']);
+    }
+
+    if (!empty($_COOKIE['client_submission_id'])) {
         return sanitize_text_field($_COOKIE['client_submission_id']);
     }
 
     $submission_id = wp_generate_uuid4();
+
     setcookie(
         'client_submission_id',
         $submission_id,
         time() + DAY_IN_SECONDS,
-        COOKIEPATH,
-        COOKIE_DOMAIN
+        '/',
+        $_SERVER['HTTP_HOST'],
+        is_ssl(),
+        true
     );
+
+    $_POST['submission_id'] = $submission_id;
 
     return $submission_id;
 }
@@ -81,7 +92,7 @@ function save_multi_form_client_data($record, $handler) {
         return;
     }
  
-    $submission_id = get_client_submission_id();
+    $submission_id = get_or_create_submission_id();
     $table = $wpdb->prefix . 'client_applications';
 
     $column_map = [
@@ -236,7 +247,9 @@ function save_multi_form_client_data($record, $handler) {
                     if (move_uploaded_file($tmp_name, $destination_path)) {
                         $file_url = $upload_dir['baseurl'] . '/form-uploads/' . $unique_filename;
                         
-                        $fields[$field_key] = $file_url;
+                        if (!empty($file_url)) {
+                            $fields[$field_key] = $file_url;
+                        }
                     }
                 }
             }
@@ -268,7 +281,9 @@ function save_multi_form_client_data($record, $handler) {
                     
                     if (move_uploaded_file($tmp_name, $destination_path)) {
                         $file_url = $upload_dir['baseurl'] . '/form-uploads/' . $unique_filename;
-                        $fields[$field_key] = $file_url;
+                        if (!empty($file_url)) {
+                            $fields[$field_key] = $file_url;
+                        }
                     }
                 } else {
                     foreach ($file_data['name'] as $index => $file_name) {
@@ -296,11 +311,13 @@ function save_multi_form_client_data($record, $handler) {
                         if (move_uploaded_file($tmp_name, $destination_path)) {
                             $file_url = $upload_dir['baseurl'] . '/form-uploads/' . $unique_filename;
                             
-                            if (!isset($fields[$field_key])) {
-                                $fields[$field_key] = $file_url;
-                            } else {
-                                $fields[$field_key] = (is_array($fields[$field_key]) ? $fields[$field_key] : [$fields[$field_key]]);
-                                $fields[$field_key][] = $file_url;
+                            if (!empty($file_url)) {
+                                if (!isset($fields[$field_key])) {
+                                    $fields[$field_key] = $file_url;
+                                } else {
+                                    $fields[$field_key] = (is_array($fields[$field_key]) ? $fields[$field_key] : [$fields[$field_key]]);
+                                    $fields[$field_key][] = $file_url;
+                                }
                             }
                         }
                     }
@@ -325,22 +342,35 @@ function save_multi_form_client_data($record, $handler) {
     }
     $exists = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT id FROM $table WHERE submission_id = %s",
+            "SELECT COUNT(*) FROM $table WHERE submission_id = %s",
             $submission_id
         )
     );
-
-    if ($exists) {
-        $wpdb->update(
-            $table,
-            $update_data,
-            ['submission_id' => $submission_id]
-        );
-    } else {
-        $wpdb->insert(
-            $table,
-            array_merge(['submission_id' => $submission_id], $update_data)
-        );
+    // $handler->add_response_data( 'exists',  $exists);
+    // $handler->add_response_data( 'submission_id',  $submission_id);
+    // $handler->add_response_data(
+    //     'query',
+    //     $wpdb->prepare(
+    //         "SELECT COUNT(*) FROM $table WHERE submission_id = %s",
+    //         $submission_id
+    //     )
+    // );
+    if (!empty($update_data) && count($update_data) > 0) {
+        if ($exists) {
+            $wpdb->update(
+                $table,
+                $update_data,
+                ['submission_id' => $submission_id],
+                array_fill(0, count($update_data), '%s'),
+                ['%s']
+            );
+        } else {
+            $wpdb->insert(
+                $table,
+                array_merge(['submission_id' => $submission_id], $update_data),
+                array_fill(0, count($update_data) + 1, '%s')
+            );
+        }
     }
 	
     if($form_name === "basic"){
@@ -404,3 +434,79 @@ add_action(
 	10,
 	2
 );
+
+//Webhook endpoint
+//https://crystalcapp.com/wp-json/api/v1/client-.applications
+add_action('rest_api_init', function() {
+    register_rest_route('api/v1', '/client-applications', array(
+        'methods' => 'GET',
+        'callback' => 'get_client_applications_webhook',
+        'permission_callback' => '__return_true', // We'll handle API key inside callback
+    ));
+    
+    register_rest_route('api/v1', '/client-applications/accepted', array(
+        'methods' => 'POST',
+        'callback' => 'accept_submission_webhook',
+        'permission_callback' => '__return_true', // We'll handle API key inside callback
+    ));
+});
+
+function get_client_applications_webhook($request) {
+    // --- API Key Security ---
+    $api_key = $request->get_header('crystalcapp-api-key');
+    $expected_key = CRYSTAL_CAPITAL_PARTNERS_API_KEY;
+
+    if ($api_key !== $expected_key) {
+        return new WP_Error('forbidden', 'Invalid API key', array('status' => 403));
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'client_applications';
+    $results = $wpdb->get_results("SELECT * FROM $table WHERE status IS NULL OR status = ''", ARRAY_A);
+
+    return rest_ensure_response($results);
+}
+
+function accept_submission_webhook($request) {
+    $api_key = $request->get_header('crystalcapp-api-key');
+    $expected_key = CRYSTAL_CAPITAL_PARTNERS_API_KEY;
+
+    if ($api_key !== $expected_key) {
+        return new WP_Error('forbidden', 'Invalid API key', array('status' => 403));
+    }
+
+    $body = $request->get_json_params();
+    
+    if (!isset($body['submission_ids']) || !is_array($body['submission_ids'])) {
+        return new WP_Error('invalid_request', 'submission_ids must be an array', array('status' => 400));
+    }
+
+    $submission_ids = $body['submission_ids'];
+    
+    if (empty($submission_ids)) {
+        return new WP_Error('invalid_request', 'submission_ids array cannot be empty', array('status' => 400));
+    }
+
+    global $wpdb;
+    $table = $wpdb->prefix . 'client_applications';
+    $sanitized_ids = array_map('sanitize_text_field', $submission_ids);
+    $placeholders = implode(',', array_fill(0, count($sanitized_ids), '%s'));
+    
+    $query = $wpdb->prepare(
+        "UPDATE $table SET status = 'accepted' WHERE submission_id IN ($placeholders)",
+        $sanitized_ids
+    );
+    
+    $updated = $wpdb->query($query);
+    
+    if ($updated === false) {
+        return new WP_Error('database_error', 'Failed to update status', array('status' => 500));
+    }
+
+    return rest_ensure_response(array(
+        'success' => true,
+        'message' => 'Status updated to accepted',
+        'updated_count' => $updated,
+        'submission_ids' => $sanitized_ids
+    ));
+}
