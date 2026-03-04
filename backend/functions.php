@@ -6,6 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'HELLO_ELEMENTOR_CHILD_VERSION', '2.0.0' );
 define( 'CRYSTAL_CAPITAL_PARTNERS_API_KEY', '9f3c8a1d2b4e7f9c0a6d8e1b2c4f5a7d9e0c1b2a3d4e5f6a7b8c9d0e1f2a' );
+define( 'GOOGLE_APPS_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycby0H1dA348iATupFoJNwxLTriX5Pn8XGDvO4mWYWdsQTveTr-OepEFiayNylyZHEUhdhg/exec' );
 
 function hello_elementor_child_scripts_styles() {
 
@@ -357,6 +358,7 @@ function save_multi_form_client_data($record, $handler) {
     // );
     if (!empty($update_data) && count($update_data) > 0) {
         if ($exists) {
+            $update_data['status'] = '';
             $wpdb->update(
                 $table,
                 $update_data,
@@ -384,6 +386,19 @@ function save_multi_form_client_data($record, $handler) {
     }else if($form_name === "id_verification_form"){
         $handler->add_response_data( 'redirect_url', site_url('/apply/?voided-check-verification') );
     }else if($form_name === "voided_check_form" || $form_name === "application_form"){
+        $update_data['submission_id'] = $submission_id;
+        $update_data['api_key'] = CRYSTAL_CAPITAL_PARTNERS_API_KEY;
+        wp_remote_post(
+            site_url('/wp-json/api/v1/client-applications/push'),
+            [
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'crystalcapp-api-key' => CRYSTAL_CAPITAL_PARTNERS_API_KEY,
+                ],
+                'body' => wp_json_encode($update_data),
+                'timeout' => 15
+            ]
+        );
         $handler->add_response_data( 'redirect_url', site_url('/apply/?thank-you-lr') );
     }
 }
@@ -438,75 +453,66 @@ add_action(
 //Webhook endpoint
 //https://crystalcapp.com/wp-json/api/v1/client-.applications
 add_action('rest_api_init', function() {
-    register_rest_route('api/v1', '/client-applications', array(
-        'methods' => 'GET',
-        'callback' => 'get_client_applications_webhook',
-        'permission_callback' => '__return_true', // We'll handle API key inside callback
-    ));
-    
-    register_rest_route('api/v1', '/client-applications/accepted', array(
-        'methods' => 'POST',
-        'callback' => 'accept_submission_webhook',
-        'permission_callback' => '__return_true', // We'll handle API key inside callback
+    register_rest_route('api/v1', '/client-applications/push', array(
+        'methods'  => 'POST',
+        'callback' => 'push_client_application_to_apps_script',
+        'permission_callback' => '__return_true',
     ));
 });
 
-function get_client_applications_webhook($request) {
-    // --- API Key Security ---
+function push_client_application_to_apps_script( WP_REST_Request $request ) {
+
+    // ── API KEY SECURITY ─────────────────────────────
     $api_key = $request->get_header('crystalcapp-api-key');
-    $expected_key = CRYSTAL_CAPITAL_PARTNERS_API_KEY;
-
-    if ($api_key !== $expected_key) {
-        return new WP_Error('forbidden', 'Invalid API key', array('status' => 403));
+    if ( $api_key !== CRYSTAL_CAPITAL_PARTNERS_API_KEY ) {
+        return new WP_Error('forbidden', 'Invalid API key', ['status' => 403]);
     }
 
-    global $wpdb;
-    $table = $wpdb->prefix . 'client_applications';
-    $results = $wpdb->get_results("SELECT * FROM $table WHERE status IS NULL OR status = ''", ARRAY_A);
+    // ── PAYLOAD ──────────────────────────────────────
+    $payload = $request->get_json_params();
 
-    return rest_ensure_response($results);
-}
-
-function accept_submission_webhook($request) {
-    $api_key = $request->get_header('crystalcapp-api-key');
-    $expected_key = CRYSTAL_CAPITAL_PARTNERS_API_KEY;
-
-    if ($api_key !== $expected_key) {
-        return new WP_Error('forbidden', 'Invalid API key', array('status' => 403));
+    if ( empty($payload) || empty($payload['submission_id']) ) {
+        return new WP_Error(
+            'invalid_payload',
+            'submission_id is required',
+            ['status' => 400]
+        );
     }
 
-    $body = $request->get_json_params();
-    
-    if (!isset($body['submission_ids']) || !is_array($body['submission_ids'])) {
-        return new WP_Error('invalid_request', 'submission_ids must be an array', array('status' => 400));
+    // ── SEND TO APPS SCRIPT ──────────────────────────
+    $response = wp_remote_post( GOOGLE_APPS_SCRIPT_URL, [
+        'headers' => [
+            'Content-Type' => 'application/json'
+        ],
+        'body'    => wp_json_encode( $payload ),
+        'timeout' => 20,
+    ]);
+
+    if ( is_wp_error( $response ) ) {
+        return new WP_Error(
+            'apps_script_error',
+            $response->get_error_message(),
+            ['status' => 500]
+        );
     }
 
-    $submission_ids = $body['submission_ids'];
-    
-    if (empty($submission_ids)) {
-        return new WP_Error('invalid_request', 'submission_ids array cannot be empty', array('status' => 400));
+    $status_code = wp_remote_retrieve_response_code( $response );
+    $body        = wp_remote_retrieve_body( $response );
+
+    if ( $status_code !== 200 ) {
+        return new WP_Error(
+            'apps_script_failed',
+            'Apps Script returned error',
+            [
+                'status' => 500,
+                'apps_script_response' => $body,
+            ]
+        );
     }
 
-    global $wpdb;
-    $table = $wpdb->prefix . 'client_applications';
-    $sanitized_ids = array_map('sanitize_text_field', $submission_ids);
-    $placeholders = implode(',', array_fill(0, count($sanitized_ids), '%s'));
-    
-    $query = $wpdb->prepare(
-        "UPDATE $table SET status = 'accepted' WHERE submission_id IN ($placeholders)",
-        $sanitized_ids
-    );
-    
-    $updated = $wpdb->query($query);
-    
-    if ($updated === false) {
-        return new WP_Error('database_error', 'Failed to update status', array('status' => 500));
-    }
-
-    return rest_ensure_response(array(
+    return rest_ensure_response([
         'success' => true,
-        'message' => 'Status updated to accepted',
-        'updated_count' => $updated,
-        'submission_ids' => $sanitized_ids
-    ));
+        'message' => 'Payload successfully sent to Apps Script',
+        'submission_id' => $payload['submission_id'],
+    ]);
 }
