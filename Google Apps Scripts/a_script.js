@@ -3,11 +3,11 @@ const PARENT_FOLDER_ID = '1Gg3caMFBM5P5A3ts75UiwjVUAu9Vb1RQ';
 const NOTIFY_EMAIL = 'admin@crystalcapp.com';
 //For script A
 const WP_API_KEY = '9f3c8a1d2b4e7f9c0a6d8e1b2c4f5a7d9e0c1b2a3d4e5f6a7b8c9d0e1f2a';
-const WEB_APP_URL = 'Please replace with the actual web_app_url';
+const WEB_APP_URL = 'please replace with your web app url';
 
 // Use a DIFFERENT secret for Script B
 const SECOND_SHARED_SECRET = 'ccp_9f3c8a1d2b4e7f9c0a6d8e1b2c4f5a7d';
-const SECOND_WEB_APP_URL = 'Please replace with the actual second_web_app_url';
+const SECOND_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzbY9TfowAOFFCTlK3IoR-Zpeqb2wzbRYFVgvmjkabViTwZqZNJ1IGfEz31wSfONrS5/exec';
 
 // ─── MAIN WEBHOOK ────────────────────────────────────────
 function doPost(e) {
@@ -54,7 +54,7 @@ function doPost(e) {
 // ─── FORWARD TO SCRIPT B ─────────────────────────────────
 function forwardPayload(payload) {
   try {
-    UrlFetchApp.fetch(SECOND_WEB_APP_URL, {
+    UrlFetchApp.fetch(SECOND_SCRIPT_WEB_APP_URL, {
       method: 'post',
       contentType: 'application/json',
       headers: {
@@ -96,8 +96,8 @@ function processApplication(data) {
 
   // Parse created_at if available
   var submittedDate;
-  if (data.created_at) {
-    var d = new Date(data.created_at.replace(' ', 'T') + 'Z');
+  if (data.updated_at) {
+    var d = new Date(data.updated_at.replace(' ', 'T') + 'Z');
     if (!isNaN(d.getTime())) {
       submittedDate = d;
     }
@@ -273,6 +273,35 @@ function processApplication(data) {
   };
 }
 
+// ─── HELPER: CONVERT IMAGE URL TO BASE64 ─────────────────────
+function convertImageUrlToBase64(url) {
+  if (!url || typeof url !== 'string' || url.trim() === '') {
+    return '';
+  }
+  
+  var trimmedUrl = url.trim();
+  if (trimmedUrl.indexOf('data:') === 0) {
+    return trimmedUrl;
+  }
+  
+  if (trimmedUrl.indexOf('http') !== 0) {
+    return '';
+  }
+  
+  try {
+    var response = UrlFetchApp.fetch(trimmedUrl, { muteHttpExceptions: true });
+    if (response.getResponseCode() === 200) {
+      var blob = response.getBlob();
+      var base64 = Utilities.base64Encode(blob.getBytes());
+      var contentType = blob.getContentType() || 'image/png';
+      return 'data:' + contentType + ';base64,' + base64;
+    }
+  } catch (err) {
+    Logger.log('Error converting signature URL to base64: ' + err.toString());
+  }
+  
+  return '';
+}
 
 // ─── TEMPLATE POPULATION ────────────────────────────────────
 
@@ -324,7 +353,7 @@ function populateTemplate(html, data, redact) {
     '{{with_which_company}}': data.with_which_company || '',
     '{{approximate_existing_balance}}': formatMoney(data.approximate_existing_balance),
     '{{monthlly_credit_card_volume}}': formatMoney(data.monthlly_credit_card_volume),
-    '{{signature}}': data.signature || '',
+    '{{signature}}': convertImageUrlToBase64(data.signature || ''),
     '{{signature_date}}': data.submitted_date || '',
     // Document checklist (for full HTML)
     '{{bank_stmt_status}}': data.last4_bank_statement1 ? 'received' : 'pending-doc',
@@ -385,12 +414,12 @@ function parseCreditScore(val) {
 
 // Format money values — adds $ if missing, handles "0.00"
 function formatMoney(val) {
-  if (!val || val === '0.00' || val === '0') return '$0';
+  if (val === null || val === undefined || val === 0 || val === '0' || val === '0.00') return '$0';
   val = String(val).trim();
   if (val.charAt(0) !== '$') {
     var num = parseFloat(val);
     if (!isNaN(num)) {
-      return '$' + num.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+      return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     }
   }
   return val;
@@ -812,8 +841,8 @@ function getFullTemplate() {
           <div class="field-label">Applicant Signature</div>
           <div style="margin-top:8px;display:flex;align-items:flex-end;gap:40px;">
             <div style="flex:1;">
-              <div style="height:56px;display:flex;align-items:flex-end;padding-bottom:10px;border-bottom:1px solid rgba(200,230,245,0.35);margin-bottom:8px;">
-                <span style="font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:300;font-style:italic;color:var(--crystal);letter-spacing:0.04em;">{{signature}}</span>
+              <div style="height:106px;display:flex;align-items:flex-end;padding-bottom:3px;border-bottom:1px solid rgba(200,230,245,0.35);margin-bottom:8px;">
+                <img src="{{signature}}" style="width:235px;height:100px;" alt="Signature" />
               </div>
               <div style="font-size:0.5rem;letter-spacing:0.22em;color:var(--muted);text-transform:uppercase;">Signature</div>
             </div>
@@ -897,12 +926,12 @@ function getLenderTemplate() {
 <meta charset="UTF-8">
 <title>Lender Copy — Crystal Capital Partners</title>
 <style>
-  @page { size: letter; margin: 0; }
+  @page { size: 8.5in 13in; margin: 0; }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: Helvetica, Arial, sans-serif; font-size:10pt; color:#2d2d2d; background:#fff; line-height:1.4; }
   table { border-collapse:collapse; width:100%; }
   td { vertical-align:top; }
-  .page { width:8.5in; height:11in; position:relative; overflow:hidden; }
+  .page { width:8.5in; height:13in; position:relative; overflow:hidden; }
 
   /* ── HEADER BAR ── */
   .topbar { background:#0d2137; padding:20px 40px; }
@@ -951,7 +980,7 @@ function getLenderTemplate() {
 
   /* Signature */
   .sig-v { font-family:Georgia,serif; font-size:15pt; font-style:italic; color:#2d2d2d; }
-  .sig-ln { border-bottom:1px solid #aaa; padding-bottom:5px; margin-bottom:3px; min-height:26px; }
+  .sig-ln { border-bottom:1px solid #aaa; padding-bottom:3px; margin-bottom:3px; min-height:106px; }
   .sig-lb { font-size:5.5pt; color:#a0aab4; text-transform:uppercase; letter-spacing:1.5px; }
 
   /* Footer */
@@ -1090,7 +1119,7 @@ function getLenderTemplate() {
       <div class="lb">Applicant Signature</div>
       <table style="margin-top:5px;"><tr>
         <td style="width:58%;padding-right:24px;">
-          <div class="sig-ln"><span class="sig-v">{{signature}}</span></div>
+          <div class="sig-ln"><img src="{{signature}}" style="width:235px;height:100px;" alt="Signature" /></div>
           <div class="sig-lb">Signature</div>
         </td>
         <td style="width:42%;">

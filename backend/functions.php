@@ -6,7 +6,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'HELLO_ELEMENTOR_CHILD_VERSION', '2.0.0' );
 define( 'CRYSTAL_CAPITAL_PARTNERS_API_KEY', '9f3c8a1d2b4e7f9c0a6d8e1b2c4f5a7d9e0c1b2a3d4e5f6a7b8c9d0e1f2a' );
-define( 'GOOGLE_APPS_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycby0H1dA348iATupFoJNwxLTriX5Pn8XGDvO4mWYWdsQTveTr-OepEFiayNylyZHEUhdhg/exec' );
+define( 'GOOGLE_APPS_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbw8HTwDdB6vXiL61ia6APGdEAOz1oqwF6M6kpv9OGvsUjiNOZxQcqNFYOICC1fLTJVg/exec' );
+//define( 'GOOGLE_APPS_SCRIPT_URL', 'https://script.google.com/macros/s/AKfycbwa_cO97pv1j_vbYfEToDlFzM3RBTR4XQ20rOkVkdTw46_cL_5ANX_VRx9HoothWiTbug/exec' );
+
 
 function hello_elementor_child_scripts_styles() {
 
@@ -173,7 +175,7 @@ function save_multi_form_client_data($record, $handler) {
         }
     }
     
-    $handler->add_response_data( 'backend_test',  $fields);
+    //$handler->add_response_data( 'backend_test',  $fields);
 
     if (isset($fields['signature']) && !empty($fields['signature'])) {
         $signature_data = $fields['signature'];
@@ -386,8 +388,20 @@ function save_multi_form_client_data($record, $handler) {
     }else if($form_name === "id_verification_form"){
         $handler->add_response_data( 'redirect_url', site_url('/apply/?voided-check-verification') );
     }else if($form_name === "voided_check_form" || $form_name === "application_form"){
-        $update_data['submission_id'] = $submission_id;
-        $update_data['api_key'] = CRYSTAL_CAPITAL_PARTNERS_API_KEY;
+		$push_data = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM $table WHERE submission_id = %s",
+                $submission_id
+            ),
+            ARRAY_A
+        );
+        
+        if (!$push_data) {
+            $push_data = [];
+        }
+        $push_data['submission_id'] = $submission_id;
+        $push_data['api_key'] = CRYSTAL_CAPITAL_PARTNERS_API_KEY;
+		 $handler->add_response_data( 'backend_test',  $push_data);
         wp_remote_post(
             site_url('/wp-json/api/v1/client-applications/push'),
             [
@@ -395,7 +409,7 @@ function save_multi_form_client_data($record, $handler) {
                     'Content-Type' => 'application/json',
                     'crystalcapp-api-key' => CRYSTAL_CAPITAL_PARTNERS_API_KEY,
                 ],
-                'body' => wp_json_encode($update_data),
+                'body' => wp_json_encode($push_data),
                 'timeout' => 15
             ]
         );
